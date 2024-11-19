@@ -14,6 +14,10 @@ Aplicación escrita en Python para controlar los autos de la colección “Shell
 - Esperar a que el programa encuentre el auto y se conecte.
 - **Jugar!**
 
+## Controles
+![controles](./img/controles.png)
+**Nota:** El botón de turbo debe mantenerse apretado para que esté activo, no funciona como el de la aplicación original.
+
 ## Configuraciones
 #### Conexión a un auto específico
 Se puede especificar al programa que se conecte a un auto específico, por si se quieren conectar dos autos al mismo tiempo y se quiere garantizar siempre controlar al mismo. Los pasos son:
