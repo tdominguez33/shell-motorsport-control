@@ -1,14 +1,13 @@
 import asyncio
-from bleak import BleakScanner, BleakClient
-from threading import Thread
-from configparser import ConfigParser
-from time import sleep
+from bleak          import BleakScanner, BleakClient
+from threading      import Thread
+from configparser   import ConfigParser
+from Crypto.Cipher  import AES
+from time           import sleep
 
 # Leemos el archivo de configuración
 config = ConfigParser()
 config.read('config.ini')
-
-UUID_CARACTERISTICA = "d44bc439-abfd-45a2-b575-925416129600"    # UUID de la caracteristica donde se envian los valores, igual para todos los autos
 
 ### Configuraciones ###
 CONEXION_ESPECIFICA = int(config['CONEXION']['conexion_especifica'])
@@ -17,23 +16,9 @@ INTENTOS_RECONEXION = int(config['CONEXION']['intentos_reconexion'])
 DEADZONE_GATILLO    = int(config['MOVIMIENTO']['deadzone_gatillo'])
 DEADZONE_ANALOGICO  = int(config['MOVIMIENTO']['deadzone_analogico'])
 
-# Códigos para el auto
-NEUTRAL         = config['CODIGOS']['NEUTRAL']
-ADELANTE        = config['CODIGOS']['adelante']
-ADELANTE_IZQ    = config['CODIGOS']['adelante_izq']
-ADELANTE_DER    = config['CODIGOS']['adelante_der']
-ATRAS           = config['CODIGOS']['atras']
-ATRAS_IZQ       = config['CODIGOS']['atras_izq']
-ATRAS_DER       = config['CODIGOS']['atras_der']
-IZQUIERDA       = config['CODIGOS']['izquierda']
-DERECHA         = config['CODIGOS']['derecha']
-
-TURBO_ADELANTE        = config['CODIGOS']['turbo_adelante']
-TURBO_ADELANTE_IZQ    = config['CODIGOS']['turbo_adelante_izq']
-TURBO_ADELANTE_DER    = config['CODIGOS']['turbo_adelante_der']
-TURBO_ATRAS           = config['CODIGOS']['turbo_atras']
-TURBO_ATRAS_IZQ       = config['CODIGOS']['turbo_atras_izq']
-TURBO_ATRAS_DER       = config['CODIGOS']['turbo_atras_der']
+# Parámetros necesarios para la transmisión
+KEY_AES             = config['PAQUETES']['key']
+UUID_CARACTERISTICA = config['PAQUETES']['uuid']
 
 salir = False
 
@@ -51,75 +36,75 @@ def elegirControlPredeterminado():
         gamepad = gamepads[0]   # Elegimos el primer control de la lista
     return gamepad
 
+lucesEncendidas = False
 
 # Recibe la variable controlValores y determina que paquete se envia
 def elegirPaquete(controlValores):
-    # Leemos el control y determinamos que valor escribir
+    global lucesEncendidas
+
+    # Creamos un paquete de 16 bytes con todos los bytes en cero
+    paquete = bytearray(16)
+
+    # Añadimos los bytes de control
+    paquete[1] = 0x43   # C
+    paquete[2] = 0x54   # T
+    paquete[3] = 0x4C   # L
 
     if(controlValores['BTN_SOUTH'] == 1):
-        turbo = True
+        paquete[9] = 0x64 # Velocidad Turbo
     else:
-        turbo = False
+        paquete[9] = 0x50 # Velocidad Normal
+
+    if(controlValores['ABS_HAT0Y'] == -1):
+        lucesEncendidas = True
+        #paquete[8] = 0x01 # Luces No Encendidas
+    elif(controlValores['ABS_HAT0Y'] == 1):
+        lucesEncendidas = False
+
+    if lucesEncendidas:
+        paquete[8] = 0x00   # Luces Encendidas
+    else:
+        paquete[8] = 0x01   # Luces No Encendidas
 
     # Gatillo Derecho - Avanzando
     if(controlValores['ABS_RZ'] > DEADZONE_GATILLO):
-        # Doblando Derecha
-        if(controlValores['ABS_X'] > DEADZONE_ANALOGICO):
-            if turbo:
-                return bytearray.fromhex(TURBO_ADELANTE_DER)
-            else:
-                return bytearray.fromhex(ADELANTE_DER)
-        
-        # Doblando Izquierda
-        elif(controlValores['ABS_X'] < -DEADZONE_ANALOGICO):
-            if turbo:
-                return bytearray.fromhex(TURBO_ADELANTE_IZQ)
-            else:
-                return bytearray.fromhex(ADELANTE_IZQ)
-        
-        # Sin Doblar
-        else:
-            if turbo:
-                return bytearray.fromhex(TURBO_ADELANTE)
-            else:
-                return bytearray.fromhex(ADELANTE)
+        paquete[4] = 0x01
     
     # Gatillo Izquierdo - Retrocediendo
     elif(controlValores['ABS_Z'] > DEADZONE_GATILLO):
-        # Doblando Derecha
-        if(controlValores['ABS_X'] > DEADZONE_ANALOGICO):
-            if turbo:
-                return bytearray.fromhex(TURBO_ATRAS_DER)
-            else:
-                return bytearray.fromhex(ATRAS_DER)
-        
-        # Doblando Izquierda
-        elif(controlValores['ABS_X'] < -DEADZONE_ANALOGICO):
-            if turbo:
-                return bytearray.fromhex(TURBO_ATRAS_IZQ)
-            else:
-                return bytearray.fromhex(ATRAS_IZQ)
-        
-        # Sin Doblar
-        else:
-            if turbo:
-                return bytearray.fromhex(TURBO_ATRAS)
-            else:
-                return bytearray.fromhex(ATRAS)
-            
-    # Ningún Gatillo Presionado - Sin Moverse
-    else:
-        # Doblando Derecha
-        if(controlValores['ABS_X'] > DEADZONE_ANALOGICO):
-            return bytearray.fromhex(DERECHA)
-        
-        # Doblando Izquierda
-        elif(controlValores['ABS_X'] < -DEADZONE_ANALOGICO):
-            return bytearray.fromhex(IZQUIERDA)
-        
-        # Sin Doblar
-        else:
-            return bytearray.fromhex(NEUTRAL)
+        paquete[5] = 0x01
+    
+    # Doblando Izquierda
+    if(controlValores['ABS_X'] < -DEADZONE_ANALOGICO):
+        paquete[6] = 0x01
+    
+    # Doblando Derecha
+    elif(controlValores['ABS_X'] > DEADZONE_ANALOGICO):
+        paquete[7] = 0x01
+    
+    return paquete
+
+# Encripta los paquetes con AES de 128 bits en modo ECB
+def encriptarPaquete(paquete, key):
+    key = bytes.fromhex(key)
+
+    cipher = AES.new(key, AES.MODE_ECB)
+    
+    codigoEncriptado = bytearray()
+
+    for byte in cipher.encrypt(paquete):
+        codigoEncriptado.append(byte)
+
+    return codigoEncriptado
+
+# Recibe un paquete y verifica si es un paquete que necesita ser reenviado constantemente para generar efecto
+def necesitaReenvio(paquete):
+    # Caso especial primer paquete
+    if paquete == None:
+        return True
+    
+    # Verificamos si estamos indicando avanzar o girar
+    return (paquete[4] == 0x01) or (paquete[5] == 0x01) or (paquete[6] == 0x01) or (paquete[7] == 0x01)
 
 # Actualiza la variable controlValores con los datos del control
 def actualizarControl(control):
@@ -135,11 +120,12 @@ def actualizarControl(control):
         if(controlValores['BTN_SELECT'] == 1 and controlValores['BTN_START'] == 1):
             salir = True
 
-
+# Lee la variable actualizada por el otro hilo y envia los comandos al auto
 async def conexionAuto(hiloControl):
     global salir
 
     print("Buscando dispositivo...")
+
     intentos = 0
     conexionActiva = False
 
@@ -181,19 +167,27 @@ async def conexionAuto(hiloControl):
                 ultimoPaquete = None
                 while conexionActiva and not salir:
                     # Leemos el control y decidimos que paquete se envia
-                    valorEnviar = elegirPaquete(controlValores)
-                    if ultimoPaquete != NEUTRAL:
+                    paqueteDesencriptado = elegirPaquete(controlValores)
+
+                    # Encriptamos el paquete
+                    paqueteEncriptado = encriptarPaquete(paqueteDesencriptado, KEY_AES)
+                    
+                    # Solo enviamos el paquete si va a generar un cambio en el auto
+                    if (not necesitaReenvio(ultimoPaquete)) and (paqueteDesencriptado == ultimoPaquete):
+                        pass
+                    else:
                         try:
                             # Escribimos el valor en el auto
-                            await client.write_gatt_char(UUID_CARACTERISTICA, valorEnviar)
+                            await client.write_gatt_char(UUID_CARACTERISTICA, paqueteEncriptado)
 
                             # Borramos la linea actual
                             print('\033[0K', end="")
-                            print(f"Escrito {valorEnviar}", end="\r")
-                            ultimoPaquete = valorEnviar
+                            print(f"Escrito {paqueteDesencriptado}", end="\r")
+                            ultimoPaquete = paqueteDesencriptado
                         except:
                             print("\nError en el envio del paquete, intentando reconectar")
                             conexionActiva = False
+                        
         except:
             print("Error en la reconexión, intentando " + str(INTENTOS_RECONEXION - intentos) + " veces más")
             intentos += 1

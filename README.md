@@ -17,9 +17,14 @@ Aplicación escrita en Python para controlar los autos de la colección “Shell
 ## Controles
 ![controles](./img/controles.png)
 **Nota:** El botón de turbo debe mantenerse apretado para que esté activo, no funciona como el de la aplicación original.
+**Nota 2:** Para salir de la aplicación se puede presionar **START + SELECT**.
 
 ## Configuraciones
 #### Conexión a un auto específico
 Se puede especificar al programa que se conecte a un auto específico, por si se quieren conectar dos autos al mismo tiempo y se quiere garantizar siempre controlar al mismo. Los pasos son:
 - Obtener el nombre Bluetooth del auto. Este se puede obtener con cualquier celular o PC con Bluetooth, se enciende el auto y se escanea como con cualquier dispositivo, el nombre tiene el formato: **“QCAR-XXXXXX”**, donde las X son números y letras aleatorios.
 - Con el nombre, se abre el archivo [config.ini](./config.ini) y se cambia el valor de la configuración **"conexion_especifica"** por un **1** y luego se reemplaza la configuración de **"nombre"** por nuestro nombre obtenido, luego guardar el archivo. Con esto ya queda configurado en el programa, cada vez que se abra el programa buscará siempre el mismo auto.
+
+## Credit where credit is due
+Gracias a este usuario que de alguna manera mística tiene la key que usa el AES para encriptar los comandos. Tener cuidado de todas formas, no toda la información es del todo precisa.
+https://gist.github.com/scrool/e79d6a4cb50c26499746f4fe473b3768

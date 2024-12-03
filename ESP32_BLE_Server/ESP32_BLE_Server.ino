@@ -2,7 +2,7 @@
   Programa utilizado para emular un auto de la colección "Shell Motorsport"
   Si se ejecuta este programa en un ESP-32 y se utiliza la aplicación "Shell Racing" esta detectará al ESP-32 como si fuese un auto
   El ESP-32 luego imprime todos los comando recibidos en el monitor serie
-  Permite obtener los comandos que espera recibir el auto para luego enviarselos por otros medios
+  Permite obtener los comandos que espera recibir el auto para luego enviarselos por otros medios o para desencriptarlos con la key de AES.
 */
 
 #include <BLEDevice.h>
