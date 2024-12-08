@@ -16,11 +16,15 @@ INTENTOS_RECONEXION = int(config['CONEXION']['intentos_reconexion'])
 DEADZONE_GATILLO    = int(config['MOVIMIENTO']['deadzone_gatillo'])
 DEADZONE_ANALOGICO  = int(config['MOVIMIENTO']['deadzone_analogico'])
 
-# Parámetros necesarios para la transmisión
-KEY_AES             = config['PAQUETES']['key']
-UUID_CARACTERISTICA = config['PAQUETES']['uuid']
+# Parámetros necesarios para la comunicación con el auto
+KEY_AES         = config['PAQUETES']['key']
+UUID_COMANDOS   = config['PAQUETES']['uuid_comandos']
+UUID_BATERIA    = config['PAQUETES']['uuid_bateria']
 
+# Variables Globales
 salir = False
+lucesEncendidas = False
+bateria = "Obteniendo ..."  # Placeholder, se tiene que enviar un paquete para recibir el valor de la bateria
 
 # En caso de que no se quiera elegir que control usar se toma el primero que aparezca disponible
 def elegirControlPredeterminado():
@@ -36,8 +40,6 @@ def elegirControlPredeterminado():
         gamepad = gamepads[0]   # Elegimos el primer control de la lista
     return gamepad
 
-lucesEncendidas = False
-
 # Recibe la variable controlValores y determina que paquete se envia
 def elegirPaquete(controlValores):
     global lucesEncendidas
@@ -51,13 +53,12 @@ def elegirPaquete(controlValores):
     paquete[3] = 0x4C   # L
 
     if(controlValores['BTN_SOUTH'] == 1):
-        paquete[9] = 0x64 # Velocidad Turbo
+        paquete[9] = 0x64   # Velocidad Turbo
     else:
-        paquete[9] = 0x50 # Velocidad Normal
+        paquete[9] = 0x50   # Velocidad Normal
 
     if(controlValores['ABS_HAT0Y'] == -1):
         lucesEncendidas = True
-        #paquete[8] = 0x01 # Luces No Encendidas
     elif(controlValores['ABS_HAT0Y'] == 1):
         lucesEncendidas = False
 
@@ -97,6 +98,19 @@ def encriptarPaquete(paquete, key):
 
     return codigoEncriptado
 
+# Desencripta los paquetes con AES de 128 bits en modo ECB
+def desencriptarPaquete(paquete, key):
+    key = bytes.fromhex(key)
+
+    cipher = AES.new(key, AES.MODE_ECB)
+
+    codigoDesencriptado = bytearray()
+
+    for byte in cipher.decrypt(paquete):
+        codigoDesencriptado.append(byte)
+
+    return codigoDesencriptado
+
 # Recibe un paquete y verifica si es un paquete que necesita ser reenviado constantemente para generar efecto
 def necesitaReenvio(paquete):
     # Caso especial primer paquete
@@ -105,6 +119,15 @@ def necesitaReenvio(paquete):
     
     # Verificamos si estamos indicando avanzar o girar
     return (paquete[4] == 0x01) or (paquete[5] == 0x01) or (paquete[6] == 0x01) or (paquete[7] == 0x01)
+
+# Función que se llama cuando la caracteristica a la que nos suscribimos envia un paquete
+def guardarBateria(sender, respuesta):
+    global bateria, bateriaByteArray, bateriaByte
+
+    bateriaByteArray = desencriptarPaquete(respuesta, KEY_AES)
+    
+    # El valor crudo es el porcentaje de bateria, ya está encodeado en decimal
+    bateria = str(bateriaByteArray[4]) + " %"
 
 # Actualiza la variable controlValores con los datos del control
 def actualizarControl(control):
@@ -122,9 +145,9 @@ def actualizarControl(control):
 
 # Lee la variable actualizada por el otro hilo y envia los comandos al auto
 async def conexionAuto(hiloControl):
-    global salir
+    global salir, bateria
 
-    print("Buscando dispositivo...")
+    print("Buscando auto...")
 
     intentos = 0
     conexionActiva = False
@@ -161,6 +184,9 @@ async def conexionAuto(hiloControl):
                 
                 print(f"Conectado a {nombreAuto} ({direccionAuto})")
 
+                # Nos suscribimos a la caracteristica que informa el porcentaje de bateria
+                await client.start_notify(UUID_BATERIA, guardarBateria)
+
                 # Comenzamos el hilo que lee los valores del control
                 hiloControl.start()
 
@@ -178,12 +204,19 @@ async def conexionAuto(hiloControl):
                     else:
                         try:
                             # Escribimos el valor en el auto
-                            await client.write_gatt_char(UUID_CARACTERISTICA, paqueteEncriptado)
+                            await client.write_gatt_char(UUID_COMANDOS, paqueteEncriptado)
 
-                            # Borramos la linea actual
-                            print('\033[0K', end="")
+                            # Borramos hasta el final de la pantalla
+                            print('\033[0J', end="")
+
+                            print(f"Bateria = {bateria}")
                             print(f"Escrito {paqueteDesencriptado}", end="\r")
+                            
                             ultimoPaquete = paqueteDesencriptado
+
+                            # Movemos una linea para arriba, dejamos listo para borrar en el siguiente ciclo
+                            print('\033[1F', end="")
+
                         except:
                             print("\nError en el envio del paquete, intentando reconectar")
                             conexionActiva = False
@@ -212,5 +245,5 @@ hiloBluetooth = Thread(target=asyncio.run, args=(conexionAuto(hiloControl), ))
 hiloBluetooth.start()
 hiloBluetooth.join()
 
-print("\nBye Bye!")
+print("\n\nBye Bye!")
 sleep(2)

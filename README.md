@@ -1,12 +1,11 @@
 # Control Shell Motorsport 2024
 
-Aplicación escrita en Python para controlar los autos de la colección “Shell Motorsport” vendidos en Argentina en 2024.
+Aplicación escrita en Python para controlar los autos de la colección “Shell Motorsport” fabricados por BrandBase con cualquier control de videojuegos.
 
 ## Guía de inicio rápido
 
 - Descargar el ejecutable de la aplicación en la página de ["Releases"](https://github.com/tdominguez33/shell-motorsport-control/releases/latest) (recomendado) o el código desde [GitHub](https://github.com/tdominguez33/shell-motorsport-control/archive/refs/heads/main.zip).
 - Extraer el archivo descargado.
-
 - Conectar un control a la PC, este debe ser **X-INPUT**, es decir, un control de estilo **Xbox**, los controles de PlayStation (Dualshock 3 y 4, Dualsense) no funcionan sin un programa externo que haga las conversiones.
 - Encender el auto.
 - Abrir el ejecutable **shellMotorsport.exe**
@@ -17,6 +16,7 @@ Aplicación escrita en Python para controlar los autos de la colección “Shell
 ## Controles
 ![controles](./img/controles.png)
 **Nota:** El botón de turbo debe mantenerse apretado para que esté activo, no funciona como el de la aplicación original.
+
 **Nota 2:** Para salir de la aplicación se puede presionar **START + SELECT**.
 
 ## Configuraciones
@@ -27,4 +27,5 @@ Se puede especificar al programa que se conecte a un auto específico, por si se
 
 ## Credit where credit is due
 Gracias a este usuario que de alguna manera mística tiene la key que usa el AES para encriptar los comandos. Tener cuidado de todas formas, no toda la información es del todo precisa.
+
 https://gist.github.com/scrool/e79d6a4cb50c26499746f4fe473b3768
